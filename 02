@@ -1,11 +1,12 @@
 !/bin/bash
 
-echo -n "Enter the name to delete and press [ENTER]: " 
-read nom_a_del
-sudo pkill -u $nom_a_del
-passwd -l $nom_a_del
-sudo deluser $nom_a_del
+if [ "$EUID" -ne 0 ]
+	  then echo "Please run as root"
+	    exit
+fi
 
+readonly USAGE="Usage: $0 [USER]\n\
+	USER,		the user to suppress.\n"
 
 # When the argument is not defined
 if [[ -z $1 ]]; then
@@ -13,18 +14,34 @@ if [[ -z $1 ]]; then
 	exit
 fi
 
-readonly nom_a_del=$1
+readonly USER_TO_DELETE=$1
 
-if [ $(id -u $nom_a_del) == $(id -u $USER) ]; then
+# Check if user exist
+getent passwd $1  > /dev/null
+if [ $? -ne 0 ] ; then
+	echo "Invalid user"
+	exit
+fi
+
+if [ $(id -u $USER_TO_DELETE) == $(id -u $USER) ]; then
 	echo "Cannot delete myself"
 	exit
 fi
 
-if [ "$(who -u | grep $nom_a_del)" == "" ]; then
+if [ $(id -u $USER_TO_DELETE) -eq 0 ]; then
+	echo "Cannot delete root and all root process"
+	exit
+fi
+
+if [ "$(who -u | grep $USER_TO_DELETE)" == "" ]; then
 	echo "The user is not loggued in, do nnot delete it."
 	exit
 fi
 
-killall -KILL -u $nom_a_del
-passwd -l $nom_a_del
-userdel -r $nom_a_del
+# Grep all process ids
+killall -KILL -u $USER_TO_DELETE
+
+echo "$KILLED_PROCESS"
+
+# Delete the user
+userdel -r $USER_TO_DELETE
